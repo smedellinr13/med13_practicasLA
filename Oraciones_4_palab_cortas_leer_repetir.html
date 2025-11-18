@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Práctica de Lectura para Primer Grado</title>
+    <style>
+        /* Estilos CSS adaptados para una audiencia infantil y buena estética */
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif; /* Fuente amigable para niños */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f8ff; /* Azul muy claro */
+            text-align: center;
+        }
+
+        #app {
+            background-color: white;
+            padding: 40px;
+            border-radius: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 90%;
+            border: 5px solid #ffcc00; /* Borde amarillo brillante */
+            animation: fadeIn 1s ease-in-out;
+            position: relative; /* Necesario para posicionar los contadores */
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            color: #ff6347; /* Rojo coral */
+            font-size: 2.2em;
+            margin-bottom: 20px;
+        }
+
+        /* Nuevo contador de éxito - LADO IZQUIERDO */
+        #success-counter {
+            position: absolute;
+            top: 15px;
+            left: 15px; /* ALINEADO A LA IZQUIERDA */
+            background-color: #3cb371; /* Verde Mar para éxito */
+            color: white;
+            padding: 8px 15px;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 1.1em;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            white-space: nowrap;
+        }
+
+        /* Contenedor para Error y Salto - LADO DERECHO */
+        #counter-group {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px; /* Espacio entre los contadores */
+        }
+
+        #error-counter, #skip-counter {
+            background-color: #ffcc00;
+            color: #333;
+            padding: 8px 15px;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 1.1em;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            white-space: nowrap;
+        }
+
+        #skip-counter {
+            background-color: #ffa500; /* Naranja para los saltos */
+            color: white;
+        }
+        
+        #paragraph-container {
+            min-height: 80px;
+            margin: 20px 0;
+            padding: 20px;
+            border: 3px solid #6495ed; /* Azul medio */
+            border-radius: 15px;
+            background-color: #e6f7ff;
+        }
+
+        #sentence-display {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+            line-height: 1.4;
+        }
+        
+        /* Estilo para subrayar la palabra que se está leyendo */
+        .highlighted {
+            text-decoration: underline 3px #ff6347;
+            text-decoration-skip-ink: none;
+            transition: text-decoration-color 0.1s;
+        }
+
+        #controls {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap; /* Permite que el botón de saltar se envuelva si es necesario */
+        }
+
+        #controls button {
+            padding: 15px 30px;
+            margin: 10px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px #999;
+            min-width: 150px; /* Asegurar tamaño de toque */
+        }
+
+        #controls button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px #666;
+        }
+
+        #speaker-btn {
+            background-color: #00bfff; /* Azul cielo profundo */
+        }
+
+        #mic-btn {
+            background-color: #3cb371; /* Verde mar */
+        }
+
+        #skip-btn {
+            background-color: #ffa500; /* Naranja para advertencia */
+        }
+
+        #controls button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        #feedback-container {
+            margin-top: 20px;
+            min-height: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #feedback-icon {
+            font-size: 4em;
+            height: 1em;
+            line-height: 1;
+            transition: color 0.3s;
+        }
+
+        #instructions {
+            font-size: 1.1em;
+            color: #555;
+            margin-top: 10px;
+        }
+
+        /* Colores específicos de retroalimentación */
+        .correct { color: #3cb371; } /* Verde para éxito */
+        .incorrect { color: #ff6347; } /* Rojo para fallo */
+
+        /* Animación de pulso para feedback */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        .pulsing {
+            animation: pulse 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>¡Vamos a Leer! 📖</h1>
+        
+        <!-- Contador de Éxitos - LADO IZQUIERDO -->
+        <div id="success-counter">
+            Éxitos: 0
+        </div>
+
+        <div id="counter-group">
+            <!-- Contadores de Error y Salto - LADO DERECHO -->
+            <div id="error-counter">
+                Errores: 0/500
+            </div>
+            <div id="skip-counter">
+                Saltos: 0
+            </div>
+        </div>
+
+        <div id="paragraph-container">
+            <p id="sentence-display">Cargando la primera lección...</p>
+        </div>
+        <div id="controls">
+            <button id="speaker-btn" title="Escuchar la oración" disabled>🔊 Escuchar</button>
+            <button id="mic-btn" title="Repetir la oración" disabled>🎤 Repetir</button>
+            <!-- Nuevo botón para saltar, inicialmente oculto -->
+            <button id="skip-btn" title="Saltar a la siguiente oración" style="display: none;">⏩ Saltar Oración</button>
+        </div>
+        <div id="feedback-container">
+            <span id="feedback-icon"></span>
+            <p id="instructions">Presiona "Escuchar" para empezar la primera oración.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Datos y Estado ---
+
+        // Lista de 50 oraciones cortas (2-4 palabras) con vocabulario básico para primer grado.
+        const BASE_SENTENCES = [
+            "El sol es azul.",
+            "Mi perro corre.",
+            "La niña ríe.",
+            "Yo veo luz.",
+            "El gato duerme.",
+            "Dame la mano.",
+            "Mira el pez.",
+            "Soy tu amigo.",
+            "El pan es rico.",
+            "La luna brilla.",
+            "Papi me ama.",
+            "La casa es mía.",
+            "Un día feliz.",
+            "Come la fruta.",
+            "El coche va.",
+            "Yo tomo agua.",
+            "El libro abre.",
+            "Ella es alta.",
+            "Hay una flor.",
+            "El bebé llora.",
+            "Mi pie duele.",
+            "El niño salta.",
+            "Canta una canción.",
+            "El tren para.",
+            "La mesa es.",
+            "Vuela alto, pájaro.",
+            "El agua cae.",
+            "Yo quiero pan.",
+            "El juego es.",
+            "Ella tiene frío.",
+            "Pinta el muro.",
+            "El oso camina.",
+            "La silla es baja.",
+            "Yo leo fácil.",
+            "Ella come mal.",
+            "El pato nada.",
+            "Vete a casa.",
+            "Soy muy fuerte.",
+            "La leche está.",
+            "Yo pego fuerte.",
+            "El cielo claro.",
+            "Ven a jugar.",
+            "La puerta abre.",
+            "Mi mano limpia.",
+            "El sol sale.",
+            "Ella vive aquí.",
+            "Mi nariz pica.",
+            "El dedo gordo.",
+            "Toma un lápiz.",
+            "La fruta roja."
+        ]; 
+
+        // Crear la lista final de 500 oraciones duplicando la base 10 veces
+        let SENTENCE_DATA = [];
+        for (let i = 0; i < 10; i++) {
+            SENTENCE_DATA = SENTENCE_DATA.concat(BASE_SENTENCES);
+        }
+
+        const TOTAL_SENTENCES = SENTENCE_DATA.length; // 500
+        const MAX_ATTEMPTS = 3; // Límite de intentos fallidos antes de permitir saltar
+
+        let currentSentenceIndex = -1;
+        let recognition = null; // Objeto de reconocimiento de voz (inicializado una sola vez)
+        let isSpeaking = false;
+        let isListening = false;
+        let isMicReady = false; // Indica si la oración ya fue escuchada y el microfono puede usarse.
+        let totalSuccesses = 0; // Contador de éxitos globales
+        let totalErrors = 0; // Contador de errores globales (fallos de lectura)
+        let totalSkips = 0; // Contador de oraciones saltadas
+        let attemptsLeft = MAX_ATTEMPTS; // Contador de intentos para la oración actual
+        let currentWordIndex = -1; // Índice de la palabra que se está leyendo para el subrayado
+
+        // Elementos del DOM
+        const sentenceDisplay = document.getElementById('sentence-display');
+        const speakerBtn = document.getElementById('speaker-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const skipBtn = document.getElementById('skip-btn');
+        const feedbackIcon = document.getElementById('feedback-icon');
+        const instructions = document.getElementById('instructions');
+        const errorCounter = document.getElementById('error-counter');
+        const skipCounter = document.getElementById('skip-counter');
+        const successCounter = document.getElementById('success-counter'); 
+
+        // --- 2. Funciones de Sonido (Web Audio API) ---
+
+        function playTone(frequency, duration, type = 'sine') {
+            try {
+                const context = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = context.createOscillator();
+                const gainNode = context.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(context.destination);
+
+                oscillator.type = type;
+                oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+                gainNode.gain.setValueAtTime(0.5, context.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
+
+                oscillator.start();
+                oscillator.stop(context.currentTime + duration);
+            } catch (e) {
+                console.warn('El sonido no pudo ser generado:', e);
+            }
+        }
+
+        function playSuccessSound() {
+            playTone(700, 0.15, 'triangle');
+            playTone(900, 0.25, 'triangle');
+        }
+
+        function playFailureSound() {
+            playTone(200, 0.4, 'sawtooth');
+        }
+
+        // --- 3. Funciones de Utilidad y UI ---
+
+        function sanitizeText(text) {
+            return text.toLowerCase()
+                .replace(/[.,!?;¿¡]/g, '')
+                .replace(/[áäà]/g, 'a')
+                .replace(/[éëè]/g, 'e')
+                .replace(/[íïì]/g, 'i')
+                .replace(/[óöò]/g, 'o')
+                .replace(/[úüù]/g, 'u')
+                .trim();
+        }
+
+        function updateCounters() {
+            // Actualizar el contador de éxitos
+            successCounter.textContent = `Éxitos: ${totalSuccesses}`;
+            // Actualizar el contador de errores
+            errorCounter.textContent = `Errores: ${totalErrors}/${TOTAL_SENTENCES}`;
+            // Actualizar el contador de saltos
+            skipCounter.textContent = `Saltos: ${totalSkips}`;
+        }
+
+        function updateSkipButtonVisibility() {
+            skipBtn.style.display = attemptsLeft <= 0 ? 'inline-block' : 'none';
+            skipBtn.disabled = attemptsLeft > 0;
+        }
+
+        function highlightWord(index) {
+            // Limpiar el subrayado anterior
+            if (currentWordIndex !== -1) {
+                const prevWord = document.getElementById(`word-${currentWordIndex}`);
+                if (prevWord) {
+                    prevWord.classList.remove('highlighted');
+                }
+            }
+            
+            // Subrayar la palabra actual
+            currentWordIndex = index;
+            const currentWord = document.getElementById(`word-${currentWordIndex}`);
+            if (currentWord) {
+                currentWord.classList.add('highlighted');
+            }
+        }
+        
+        function clearHighlight() {
+            if (currentWordIndex !== -1) {
+                const prevWord = document.getElementById(`word-${currentWordIndex}`);
+                if (prevWord) {
+                    prevWord.classList.remove('highlighted');
+                }
+            }
+            currentWordIndex = -1;
+        }
+
+        function showFeedback(isCorrect) {
+            feedbackIcon.classList.remove('pulsing', 'correct', 'incorrect');
+            feedbackIcon.innerHTML = '';
+
+            if (isCorrect) {
+                feedbackIcon.classList.add('correct', 'pulsing');
+                feedbackIcon.innerHTML = '✔';
+                instructions.textContent = '🎉 ¡Excelente! Pasando a la siguiente oración...';
+                playSuccessSound();
+                attemptsLeft = MAX_ATTEMPTS; // Reiniciar intentos al tener éxito
+            } else {
+                // Solo se decrementan los intentos si el fallo fue por lectura
+                if (isListening) { 
+                    attemptsLeft--;
+                    totalErrors++;
+                    updateCounters(); // Actualizar contadores
+                }
+
+                feedbackIcon.classList.add('incorrect', 'pulsing');
+                feedbackIcon.innerHTML = '❌';
+                
+                if (attemptsLeft > 0) {
+                    instructions.textContent = `❌ ¡Inténtalo de nuevo! Te quedan ${attemptsLeft} intentos. Vuelve a presionar "Escuchar" y repite.`;
+                } else {
+                    instructions.textContent = '❌ No pudiste repetirlo. Puedes intentar de nuevo o presionar "Saltar Oración".';
+                }
+                
+                playFailureSound();
+            }
+            updateSkipButtonVisibility();
+        }
+
+        function updateButtons(isReading, isRecognizing) {
+            isSpeaking = isReading;
+            isListening = isRecognizing;
+
+            // Deshabilitar botones durante la lectura o la escucha
+            speakerBtn.disabled = isReading || isRecognizing;
+            
+            // El botón de micrófono solo se habilita si no se está leyendo/escuchando,
+            // si el reconocimiento está inicializado, Y si ya se escuchó la oración (isMicReady).
+            let disableMic = isReading || isRecognizing || recognition === null || !isMicReady;
+
+            // Si los intentos se han agotado y la última calificación fue incorrecta, deshabilitar el mic.
+            if (attemptsLeft <= 0 && feedbackIcon.innerHTML === '❌') {
+                disableMic = true;
+            }
+
+            micBtn.disabled = disableMic;
+            skipBtn.disabled = true; 
+
+            if (currentSentenceIndex === -1) {
+                 // Estado inicial: solo Escuchar está activo
+                 speakerBtn.disabled = false;
+                 micBtn.disabled = true;
+            } else if (isReading) {
+                speakerBtn.textContent = '🔊 Leyendo...';
+                micBtn.textContent = '🎤 Repetir';
+            } else if (isRecognizing) {
+                micBtn.textContent = '🔴 Habla Ahora...';
+                speakerBtn.textContent = '🔊 Escuchar';
+            } else if (currentSentenceIndex >= 0) {
+                // Estado de espera después de la lectura/reconocimiento
+                speakerBtn.textContent = '🔊 Escuchar';
+                micBtn.textContent = '🎤 Repetir';
+            }
+            
+            updateSkipButtonVisibility();
+        }
+
+        // --- 4. Funciones de Manejo de Reconocimiento de Voz ---
+        
+        function handleRecognitionResult(event) {
+            const recognizedText = event.results[0][0].transcript;
+            instructions.textContent = `Dijiste: "${recognizedText}"`;
+            gradeSpeech(recognizedText);
+        }
+
+        function handleRecognitionError(event) {
+            updateButtons(false, false);
+            console.error('Error de reconocimiento de voz:', event.error);
+            
+            let errorMessage = 'Hubo un error al escuchar. Asegúrate de tener un micrófono y presiona "Repetir" de nuevo.';
+            
+            if (event.error === 'no-speech' || event.error === 'network') {
+                // Contar como intento fallido solo si no se detectó el habla
+                attemptsLeft--;
+                
+                feedbackIcon.innerHTML = '❌'; 
+                feedbackIcon.classList.add('incorrect');
+
+                if (attemptsLeft > 0) {
+                    errorMessage = `⚠️ ¡No detectamos tu voz! Te quedan ${attemptsLeft} intentos. Intenta hablar más alto o verifica tu micrófono.`;
+                } else {
+                    errorMessage = '⚠️ ¡No detectamos tu voz! Puedes intentar de nuevo o presionar "Saltar Oración".';
+                }
+            } else if (event.error === 'not-allowed') {
+                errorMessage = '🚫 Acceso denegado al micrófono. Debes permitir el uso del micrófono en la configuración del navegador.';
+                feedbackIcon.innerHTML = '';
+                // Como el acceso está denegado, resetear los intentos para que se pueda saltar si es necesario
+                attemptsLeft = 0; 
+            }
+
+            instructions.textContent = errorMessage;
+            speakerBtn.disabled = false;
+            updateSkipButtonVisibility();
+        }
+        
+        function handleRecognitionEnd() {
+            // Esta función se llama después de onresult o onerror
+            updateButtons(false, false); 
+        }
+
+        function initializeRecognition() {
+            // Verificar compatibilidad SOLO UNA VEZ
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                instructions.textContent = 'Lo sentimos, tu navegador NO soporta la función de reconocimiento de voz. Usa Google Chrome o Edge.';
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition(); // Se crea la instancia SOLO UNA VEZ
+
+            // *** NOTA: La persistencia del permiso del micrófono (pedir solo una vez) es controlada por el navegador
+            // y a menudo solo funciona si la página se ejecuta en un servidor seguro (HTTPS). ***
+            
+            // *** CAMBIO: Usar Español de México para el reconocimiento ***
+            recognition.lang = 'es-MX'; 
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            recognition.continuous = false;
+            
+            // Asignar los handlers de eventos (solo una vez)
+            recognition.onresult = handleRecognitionResult;
+            recognition.onerror = handleRecognitionError;
+            recognition.onend = handleRecognitionEnd;
+            
+            console.log('Objeto de SpeechRecognition inicializado.');
+        }
+
+        function startRecognition() {
+            if (isListening || recognition === null) return;
+
+            updateButtons(false, true);
+
+            // Abortar si estaba escuchando previamente (importante para evitar errores en la API)
+            try {
+                recognition.abort(); 
+            } catch (e) {
+                // Ignorar error si no estaba activo
+            }
+
+            // Llamar a start(), que ahora solo pide permiso la primera vez
+            recognition.start();
+        }
+
+        // --- 5. Flujo Principal (Lectura, Repetición y Calificación) ---
+        
+        // Función para mostrar la oración con cada palabra en un span para subrayado
+        function displaySentence(sentence) {
+            const words = sentence.split(/\s+/).filter(w => w.length > 0);
+            const spannedSentence = words.map((word, index) => 
+                `<span id="word-${index}" class="sentence-word">${word}</span>`
+            ).join(' ');
+            sentenceDisplay.innerHTML = spannedSentence;
+        }
+
+        // Función auxiliar para seleccionar la voz más apropiada y natural
+        function getChildVoice() {
+            const voices = window.speechSynthesis.getVoices();
+            
+            // Prioriza es-MX, luego es-ES y luego cualquier es.
+            const esMxVoices = voices.filter(voice => voice.lang.startsWith('es-MX'));
+            const esGeneralVoices = voices.filter(voice => voice.lang.startsWith('es') && !voice.lang.startsWith('es-MX'));
+            
+            let targetVoices = [...esMxVoices, ...esGeneralVoices];
+
+            // Palabras clave para buscar voces que suenen infantiles, femeninas o de alta calidad
+            const preferredKeywords = ['kid', 'child', 'niño', 'niña', 'female', 'femenino', 'mexico', 'google', 'microsoft'];
+
+            // 1. Buscar voces de alta calidad o con palabras clave de preferencia (MX si es posible)
+            let bestVoice = targetVoices.find(voice => 
+                preferredKeywords.some(keyword => voice.name.toLowerCase().includes(keyword))
+            );
+            
+            // 2. Fallback a la primera voz en español encontrada (dando prioridad a MX si existe)
+            if (!bestVoice && targetVoices.length > 0) {
+                bestVoice = targetVoices[0];
+            }
+            
+            return bestVoice;
+        }
+
+
+        function loadSentence(index) {
+            currentSentenceIndex = index;
+            feedbackIcon.innerHTML = ''; // Limpiar feedback
+            attemptsLeft = MAX_ATTEMPTS; // Resetear intentos para la nueva oración
+            isMicReady = false; // IMPORTANTE: Resetear para que el mic se deshabilite hasta que se escuche
+            updateSkipButtonVisibility(); // Ocultar el botón de saltar
+            clearHighlight(); // Limpiar el subrayado
+
+            if (currentSentenceIndex < TOTAL_SENTENCES) {
+                const sentence = SENTENCE_DATA[currentSentenceIndex];
+                displaySentence(sentence);
+                // INSTRUCCIÓN ACTUALIZADA
+                instructions.textContent = `Oración ${currentSentenceIndex + 1} de ${TOTAL_SENTENCES}. Presiona "Escuchar" para oírla. (Nota: Podrías tener que aceptar el permiso del micrófono en la primera repetición.)`;
+                updateButtons(false, false);
+            } else {
+                // Todos los párrafos completados
+                sentenceDisplay.textContent = '🎉 ¡Completaste todos los párrafos! ¡Felicidades, gran trabajo! 🎉';
+                instructions.textContent = `Tu puntaje final es: ${totalSuccesses} correctas con ${totalErrors} errores (y ${totalSkips} saltos). ¡Puedes recargar la página para volver a empezar el desafío!`;
+                speakerBtn.disabled = true;
+                micBtn.disabled = true;
+                skipBtn.style.display = 'none';
+            }
+        }
+
+        function loadParagraph() {
+            // Iniciar en una oración aleatoria
+            currentSentenceIndex = Math.floor(Math.random() * TOTAL_SENTENCES); 
+            updateCounters(); 
+            loadSentence(currentSentenceIndex);
+        }
+
+        function readSentence() {
+            if (isSpeaking) return;
+
+            const sentence = SENTENCE_DATA[currentSentenceIndex];
+            if (!sentence) return;
+
+            updateButtons(true, false);
+
+            const utterance = new SpeechSynthesisUtterance(sentence);
+            // *** CAMBIO: Usar Español de México y velocidad ajustada (un poco más rápida) ***
+            utterance.lang = 'es-MX'; 
+            utterance.rate = 0.6; // Velocidad ajustada (0.4 era muy lenta, 1.0 es normal)
+            utterance.pitch = 1.2; 
+
+            // Intentar seleccionar la voz más natural
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                 const selectedVoice = getChildVoice();
+                 if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                 }
+            }
+
+
+            const words = sentence.split(/\s+/).filter(w => w.length > 0);
+
+            // Manejar el subrayado de palabra
+            utterance.onboundary = (event) => {
+                if (event.name === 'word') {
+                    const offset = event.charIndex;
+                    let currentWord = -1;
+                    let charCount = 0;
+                    
+                    // Encontrar el índice de la palabra en el DOM
+                    for (let i = 0; i < words.length; i++) {
+                        // El cálculo se basa en el índice de carácter dentro de la frase
+                        if (offset >= charCount && offset < charCount + words[i].length) {
+                            currentWord = i;
+                            break;
+                        }
+                        // Contar la palabra + el espacio (o puntuación)
+                        charCount += words[i].length + (i < words.length - 1 ? 1 : 0); 
+                    }
+                    
+                    if (currentWord !== -1) {
+                        highlightWord(currentWord);
+                    }
+                }
+            };
+
+
+            utterance.onend = () => {
+                clearHighlight(); // Limpiar el subrayado al terminar
+                isMicReady = true; // El micrófono está listo para usarse
+                updateButtons(false, false);
+                instructions.textContent = '¡Escucha! Ahora presiona "Repetir" y di la oración en voz alta.';
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+        
+        function skipSentence() {
+            instructions.textContent = 'Oración saltada. ⏩ Cargando la siguiente...';
+            
+            // Aumentar el contador de saltos
+            totalSkips++;
+            updateCounters(); 
+
+            // Registrar los intentos restantes como "errores" 
+            totalErrors += attemptsLeft; 
+            updateCounters(); 
+
+            setTimeout(() => {
+                // Avanzar a la siguiente oración
+                let nextIndex = currentSentenceIndex + 1;
+                if (nextIndex >= TOTAL_SENTENCES) {
+                    nextIndex = 0; // Volver al inicio si llega al final
+                }
+                loadSentence(nextIndex);
+            }, 500);
+        }
+
+        // Función auxiliar para calcular la superposición de palabras
+        function calculateWordOverlap(targetWords, recognizedWords) {
+            const targetSet = new Set(targetWords);
+            let matchCount = 0;
+
+            for (const word of recognizedWords) {
+                if (targetSet.has(word)) {
+                    matchCount++;
+                    targetSet.delete(word); 
+                }
+            }
+            return matchCount;
+        }
+
+        function gradeSpeech(recognizedText) {
+            const targetText = SENTENCE_DATA[currentSentenceIndex];
+            
+            // 1. Limpieza de texto
+            const sanitizedTarget = sanitizeText(targetText);
+            const sanitizedRecognized = sanitizeText(recognizedText);
+
+            // 2. División en palabras
+            const targetWords = sanitizedTarget.split(/\s+/).filter(w => w.length > 0);
+            const recognizedWords = sanitizedRecognized.split(/\s+/).filter(w => w.length > 0);
+            
+            const targetLength = targetWords.length;
+            const recognizedLength = recognizedWords.length;
+
+            let isCorrect = false;
+
+            if (targetLength === 0) {
+                isCorrect = false; 
+            } else if (targetWords.length === recognizedWords.length && sanitizedTarget === sanitizedRecognized) {
+                // Coincidencia exacta de texto limpio
+                isCorrect = true;
+            } else {
+                // Cálculo estricto de coincidencia de palabras
+                const matchedWords = calculateWordOverlap(targetWords, recognizedWords);
+                
+                const wordMatchThreshold = 0.90;
+                const wordMatchRatio = matchedWords / targetLength;
+                
+                const lengthThreshold = 0.80;
+                const lengthRatio = recognizedLength / targetLength;
+
+                // Criterio de Aprobación ESTRICTO
+                isCorrect = (wordMatchRatio >= wordMatchThreshold) && (lengthRatio >= lengthThreshold);
+            }
+
+            showFeedback(isCorrect);
+
+            if (isCorrect) {
+                // ÉXITO: Incrementar el contador de éxitos
+                totalSuccesses++;
+                updateCounters();
+
+                // Éxito: Mover a la siguiente oración (en modo circular)
+                setTimeout(() => {
+                    let nextIndex = currentSentenceIndex + 1;
+                    if (nextIndex >= TOTAL_SENTENCES) {
+                        nextIndex = 0; 
+                    }
+                    loadSentence(nextIndex);
+                }, 1500);
+            } 
+        }
+
+        // --- 6. Event Listeners e Inicialización ---
+
+        speakerBtn.addEventListener('click', readSentence);
+        micBtn.addEventListener('click', startRecognition);
+        skipBtn.addEventListener('click', skipSentence); 
+
+        // Inicialización al cargar la página
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeRecognition(); // Inicializar el objeto de reconocimiento de voz una sola vez
+
+            if ('speechSynthesis' in window) {
+                // Hay que esperar a que las voces se carguen para poder seleccionar la voz de niño/a
+                if (window.speechSynthesis.getVoices().length === 0) {
+                    window.speechSynthesis.onvoiceschanged = loadParagraph;
+                } else {
+                    loadParagraph();
+                }
+            } else {
+                 console.warn('El navegador no soporta la síntesis de voz.');
+                 loadParagraph(); // Cargar la UI de todas formas
+            }
+        });
+    </script>
+</body>
+</html>
