@@ -108,7 +108,7 @@
 <div id="app" class="card">
     <h1 class="text-3xl font-bold text-center mb-6 text-blue-800">Práctica de Voz en Español</h1>
     <p class="text-center text-gray-500 mb-8 font-semibold text-green-600">
-        ¡MODO ESTRICTO ACTIVO! La evaluación es rigurosa. Intenta repetir correctamente en 3 intentos.
+        ¡MODO ESTRICTO MÁXIMO! Requiere conteo exacto de palabras y alta precisión fonética.
     </p>
 
     <!-- Marcador y Estadísticas -->
@@ -199,8 +199,10 @@
     let wordStartIndices = []; 
 
     // --- Lógica del Juego ---
-    // REDUCCIÓN DE TOLERANCIA: De 0.25 a 0.15 para una evaluación más estricta.
-    const TOLERANCE_PERCENTAGE = 0.15; 
+    // AJUSTE SOLICITADO: Tolerancia reducida a 17% (más estricto fonéticamente)
+    const TOLERANCE_PERCENTAGE = 0.17; 
+    // AJUSTE SOLICITADO: Debe coincidir el conteo exacto de palabras.
+    const STRICT_WORD_COUNT_CHECK = true;
 
     // --- Referencias DOM ---
     const sentenceEl = document.getElementById('current-sentence');
@@ -246,6 +248,17 @@
         "Es hora de dormir."
     ];
     
+    // --- FUNCIÓN: Normaliza texto (quita acentos y puntuación) ---
+    function normalizeText(text) {
+        // 1. Quitar puntuación y signos de interrogación/exclamación. Se mantiene el espacio entre palabras.
+        let cleaned = text.trim().toLowerCase().replace(/[.,!?;:¿¡]/g, '').replace(/\s+/g, ' ');
+        
+        // 2. Quitar diacríticos (acentos) - CRUCIAL para el reconocimiento de voz
+        cleaned = cleaned.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+        return cleaned;
+    }
+
     // --- Algoritmo de Levenshtein (Para mayor sensibilidad de voz) ---
     function levenshteinDistance(a, b) {
         if (a.length === 0) return b.length;
@@ -308,6 +321,7 @@
     }
 
     function loadNewSentence() {
+        // Recargar y mezclar las oraciones si se llega al final
         if (appState.sentences.length === 0 || appState.currentSentenceIndex >= ALL_SENTENCES.length) {
             appState.sentences = [...ALL_SENTENCES].sort(() => 0.5 - Math.random());
             appState.currentSentenceIndex = 0;
@@ -322,7 +336,6 @@
         
         // 2. Crear los <span> para la sincronización visual
         // Usamos una expresión regular para manejar espacios y puntuación al dividir
-        // Esto crea un array de palabras, incluyendo la puntuación adjunta (ej: "hoy!")
         const words = sentence.match(/\S+/g) || []; 
         let currentIndex = 0;
 
@@ -385,7 +398,7 @@
         if (state === 'listen') {
             // Estado Inicial: Escuchar Oración (Oreja)
             buttonText.textContent = '👂 Escuchar Oración';
-            listenIcon.classList.add('hidden'); 
+            listenIcon.classList.remove('hidden'); 
             repeatIcon.classList.add('hidden');
             // Botón por defecto (Azul)
             mainButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
@@ -432,6 +445,7 @@
             utterance.lang = 'es-ES';
         }
         
+        // Ajuste de velocidad (rate) a 0.9 para una voz menos robótica
         utterance.rate = 0.9; 
 
         utterance.onstart = () => {
@@ -440,9 +454,7 @@
             appState.wordSpans.forEach(span => span.classList.remove('highlight-word'));
         };
 
-        //
         // LÓGICA PARA EL SUBRAYADO PALABRA POR PALABRA
-        //
         utterance.onboundary = (event) => {
             if (event.name === 'word') {
                 const charIndex = event.charIndex;
@@ -509,17 +521,17 @@
 
             try { recognition.stop(); } catch (e) { console.error("Error al detener reconocimiento en onresult:", e); }
 
-            const transcript = event.results[0][0].transcript.trim().toLowerCase().replace(/[.,!?;:¿¡]/g, '').replace(/\s+/g, ' ');
+            // Tomamos la transcripción original (puede incluir puntuación/capitales)
+            const transcript = event.results[0][0].transcript;
+            
             console.log('--- RECONOCIMIENTO DE VOZ ---');
-            console.log('Transcripción recibida:', transcript);
+            console.log('Transcripción recibida (Original):', transcript);
             
             appState.isCheckPerformed = true; 
             checkRepetition(transcript);
         };
 
-        //
-        // LÓGICA CORREGIDA PARA EL MANEJO DE ERRORES DE PERMISO/403
-        //
+        // LÓGICA PARA EL MANEJO DE ERRORES
         recognition.onerror = (event) => {
             clearTimeout(recognitionTimeout);
             appState.isListening = false;
@@ -542,8 +554,7 @@
                 errorMessage = 'El servicio de reconocimiento fue bloqueado por tu navegador o sistema.';
             }
             
-            // Mensaje clave para el usuario sobre el error 403
-            statusMessage.textContent = errorMessage + ' (Si ves un mensaje de Error 403, es un mensaje externo de la plataforma, ignóralo y concéntrate en los permisos del micrófono.)';
+            statusMessage.textContent = errorMessage;
 
             handleIncorrect(true); // Indica que es un error de sistema
             setMainButtonState('listen');
@@ -575,6 +586,7 @@
             window.speechSynthesis.cancel();
             recognition.start();
             statusMessage.textContent = 'Escuchando... ¡Habla claramente!';
+            // Timeout de 7 segundos para la escucha
             recognitionTimeout = setTimeout(() => {
                 recognition.stop();
             }, 7000); 
@@ -584,30 +596,50 @@
         }
     }
 
-    // --- Evaluación con Umbral Estricto (15%) ---
+    // --- Evaluación con Umbral Estricto (17%) y Conteo de Palabras ---
 
     function checkRepetition(transcript) {
         const expectedSentence = appState.sentences[appState.currentSentenceIndex];
-        const cleanedExpected = expectedSentence.trim().toLowerCase().replace(/[.,!?;:¿¡]/g, '').replace(/\s+/g, ' ');
+        
+        // 1. CONTEO DE PALABRAS (Chequeo Estricto Máximo)
+        const cleanForCount = (text) => text.trim().toLowerCase().replace(/[.,!?;:¿¡]/g, '').split(/\s+/).filter(Boolean);
+        const expectedWords = cleanForCount(expectedSentence);
+        const transcriptWords = cleanForCount(transcript);
+        
+        console.log('--- EVALUACIÓN ESTRICTA ---');
+        console.log(`Expected Words: ${expectedWords.length} (${expectedWords.join(' | ')})`);
+        console.log(`Transcript Words: ${transcriptWords.length} (${transcriptWords.join(' | ')})`);
+
+        if (STRICT_WORD_COUNT_CHECK && expectedWords.length !== transcriptWords.length) {
+            // Falla automáticamente si el número de palabras no coincide
+            statusMessage.textContent = `¡Fallo Estricto! Debes repetir **exactamente** ${expectedWords.length} palabras.`;
+            handleIncorrect(false);
+            return;
+        }
+
+        // 2. EVALUACIÓN FONÉTICA (Levenshtein al 17%)
+        const cleanedExpected = normalizeText(expectedSentence);
+        const cleanedTranscript = normalizeText(transcript);
         
         const toleranceThreshold = Math.ceil(cleanedExpected.length * TOLERANCE_PERCENTAGE); 
-        const distance = levenshteinDistance(cleanedExpected, transcript);
+        const distance = levenshteinDistance(cleanedExpected, cleanedTranscript);
         
-        console.log(`Expected (Clean): "${cleanedExpected}"`);
-        console.log(`Transcript: "${transcript}"`);
-        console.log(`Tolerance Threshold (15%): ${toleranceThreshold}, Distance: ${distance}`);
+        console.log(`Expected (Normalized): "${cleanedExpected}" (Length ${cleanedExpected.length})`);
+        console.log(`Transcript (Normalized): "${cleanedTranscript}" (Length ${cleanedTranscript.length})`);
+        console.log(`Tolerance Threshold (17%): ${toleranceThreshold}, Distance: ${distance}`);
 
         const isCorrect = distance <= toleranceThreshold;
 
         if (isCorrect) {
             handleCorrect();
         } else {
-            const isAlmostCorrect = distance <= (toleranceThreshold + 3); 
+            // Ligeramente más indulgente con errores muy pequeños para dar feedback útil
+            const isAlmostCorrect = distance <= (toleranceThreshold + 2); 
             
             if (isAlmostCorrect) {
-                 statusMessage.textContent = `Casi lo logras. Hubo un error menor. Vuelve a escuchar y repite.`;
+                 statusMessage.textContent = `Casi lo logras. Hubo un error menor o un problema fonético. Vuelve a escuchar y repite.`;
             } else {
-                 statusMessage.textContent = `La repetición fue muy diferente. Vuelve a escuchar y repite.`;
+                 statusMessage.textContent = `La repetición fue muy diferente (Distancia: ${distance}). Vuelve a escuchar y repite.`;
             }
 
             handleIncorrect(false); 
@@ -708,25 +740,39 @@
     }
     
     // Función para precargar y cachear la voz en español
-    // Intenta encontrar una voz de alta calidad (mejor para Safari/iOS)
+    // Intenta encontrar una voz de alta calidad que suene menos robótica
     function cacheSpanishVoice() {
+        // Si el navegador soporta onvoiceschanged, esperamos a que carguen
+        if (window.speechSynthesis.getVoices().length === 0) {
+            window.speechSynthesis.onvoiceschanged = cacheSpanishVoice;
+            return;
+        }
+
         const voices = window.speechSynthesis.getVoices();
-        // Nombres de voces de alta calidad comunes en sistemas Apple/Safari (e.g., Siri Voices)
-        const preferredVoiceNames = ['Mónica', 'Laura', 'Jorge', 'Juan', 'Paulina', 'Marisa'];
+        
+        // Prioridad 1: Voces específicas de alta calidad o nativas del sistema (ej. Siri, o nombres comunes de voces de Google TTS)
+        const preferredVoiceNames = ['Siri', 'Monica', 'Laura', 'Jorge', 'Juan', 'Paulina', 'Marisa', 'Google español'];
         
         let bestSpanishVoice = null;
 
-        // 1. Intentar encontrar una voz por nombre (esto es más probable que funcione bien en iOS/Safari)
+        // Búsqueda por nombre preferido
         for (const name of preferredVoiceNames) {
-            bestSpanishVoice = voices.find(voice => voice.name.includes(name) && voice.lang.startsWith('es'));
+            bestSpanishVoice = voices.find(voice => 
+                voice.name.includes(name) && voice.lang.startsWith('es')
+            );
             if (bestSpanishVoice) {
                 appState.spanishVoice = bestSpanishVoice;
-                console.log(`TTS: Voz de alta calidad seleccionada: ${bestSpanishVoice.name}`);
+                console.log(`TTS: Voz seleccionada (por nombre): ${bestSpanishVoice.name}`);
                 return;
             }
         }
 
-        // 2. Si no se encuentra un nombre específico, buscar la primera voz en español
+        // Prioridad 2: La primera voz que sea es-ES y no sea la voz predeterminada del sistema si no es de buena calidad
+        if (!bestSpanishVoice) {
+            bestSpanishVoice = voices.find(voice => voice.lang === 'es-ES' || voice.lang.startsWith('es-'));
+        }
+
+        // Prioridad 3: Cualquier voz en español (es-XX)
         if (!bestSpanishVoice) {
             bestSpanishVoice = voices.find(voice => voice.lang.startsWith('es'));
         }
@@ -734,10 +780,10 @@
         if (bestSpanishVoice) {
             appState.spanishVoice = bestSpanishVoice;
             if (!appState.spanishVoice.name.includes(preferredVoiceNames[0])) {
-                console.log(`TTS: Voz genérica seleccionada: ${bestSpanishVoice.name}`);
+                console.log(`TTS: Voz seleccionada (genérica): ${bestSpanishVoice.name} (${bestSpanishVoice.lang})`);
             }
         } else {
-            console.warn('TTS: No se encontró ninguna voz en español (es-ES). Se utilizará el valor por defecto del navegador.');
+            console.warn('TTS: No se encontró ninguna voz en español. Se utilizará el valor por defecto del navegador.');
         }
     }
 
@@ -748,10 +794,9 @@
         
         // Lógica de carga de voz TTS
         if ('speechSynthesis' in window) {
+            // Llamar inmediatamente y configurar el listener
             cacheSpanishVoice(); 
-            if (window.speechSynthesis.onvoiceschanged !== undefined) {
-                 window.speechSynthesis.onvoiceschanged = cacheSpanishVoice;
-            }
+            window.speechSynthesis.onvoiceschanged = cacheSpanishVoice;
         }
 
         if (!SpeechRecognition) {
