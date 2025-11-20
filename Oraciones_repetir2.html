@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Lectura Mágica</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  
+  <!-- Babel Standalone (para compilar JSX y Typescript en el navegador) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Comic Neue"', 'cursive', 'sans-serif'],
+          },
+          colors: {
+            'kid-blue': '#4CC9F0',
+            'kid-purple': '#7209B7',
+            'kid-pink': '#F72585',
+            'kid-yellow': '#FFD60A',
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body {
+      background-color: #f0f9ff;
+      touch-action: manipulation;
+    }
+    /* Animaciones personalizadas */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    .animate-shake {
+      animation: shake 0.4s ease-in-out;
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- LÓGICA DE LA APLICACIÓN -->
+  <script type="text/babel" data-presets="react,typescript">
+    const { useState, useEffect, useRef } = React;
+
+    // --- 1. ICONOS (SVG Inline para evitar dependencias externas rotas) ---
+    const Mic = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>;
+    const Volume2 = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>;
+    const SkipForward = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/></svg>;
+    const Settings = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
+    const Award = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>;
+    const CheckCircle2 = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>;
+    const AlertTriangle = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>;
+    const XCircle = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>;
+    const Lock = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
+    const X = (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+
+    // --- 2. TIPOS Y DATOS (Game Content) ---
+    
+    // Enums simulados para JS
+    const GameState = {
+      IDLE: 'IDLE',
+      READING_ALOUD: 'READING_ALOUD',
+      LISTENING: 'LISTENING',
+      EVALUATING: 'EVALUATING',
+      SUCCESS: 'SUCCESS',
+      FAILURE: 'FAILURE'
+    };
+
+    const THEMES = [
+      {
+        id: 'default',
+        name: 'Cielo Azul',
+        colors: {
+          background: 'bg-sky-50',
+          primary: 'bg-sky-400 hover:bg-sky-500',
+          secondary: 'bg-indigo-500 hover:bg-indigo-600',
+          accent: 'text-sky-600',
+          text: 'text-slate-700',
+          ring: 'ring-sky-200',
+          icon: 'text-sky-500'
+        }
+      },
+      {
+        id: 'jungle',
+        name: 'Selva Divertida',
+        colors: {
+          background: 'bg-green-50',
+          primary: 'bg-green-500 hover:bg-green-600',
+          secondary: 'bg-yellow-500 hover:bg-yellow-600',
+          accent: 'text-green-700',
+          text: 'text-green-900',
+          ring: 'ring-green-200',
+          icon: 'text-green-600'
+        }
+      },
+      {
+        id: 'candy',
+        name: 'Dulces Sueños',
+        colors: {
+          background: 'bg-pink-50',
+          primary: 'bg-pink-400 hover:bg-pink-500',
+          secondary: 'bg-purple-400 hover:bg-purple-500',
+          accent: 'text-pink-600',
+          text: 'text-pink-900',
+          ring: 'ring-pink-200',
+          icon: 'text-pink-500'
+        }
+      },
+      {
+        id: 'space',
+        name: 'Espacio Exterior',
+        colors: {
+          background: 'bg-slate-900',
+          primary: 'bg-indigo-500 hover:bg-indigo-600',
+          secondary: 'bg-violet-600 hover:bg-violet-700',
+          accent: 'text-indigo-300',
+          text: 'text-slate-100',
+          ring: 'ring-indigo-800',
+          icon: 'text-indigo-400'
+        }
+      }
+    ];
+
+    const AVATARS = [
+      { id: 'bear', emoji: '🐻', name: 'Oso' },
+      { id: 'cat', emoji: '🐱', name: 'Gato' },
+      { id: 'dog', emoji: '🐶', name: 'Perro' },
+      { id: 'lion', emoji: '🦁', name: 'León' },
+      { id: 'unicorn', emoji: '🦄', name: 'Unicornio' },
+      { id: 'robot', emoji: '🤖', name: 'Robot' },
+      { id: 'astronaut', emoji: '👩‍🚀', name: 'Astronauta' },
+      { id: 'dragon', emoji: '🐲', name: 'Dragón' }
+    ];
+
+    const BADGES = [
+      { id: 'b1', name: 'Principiante', description: 'Lee 1 oración correctamente', icon: '🥉', requiredScore: 1 },
+      { id: 'b2', name: 'Estrella Fugaz', description: 'Lee 5 oraciones correctamente', icon: '⭐', requiredScore: 5 },
+      { id: 'b3', name: 'Lector Veloz', description: 'Lee 10 oraciones correctamente', icon: '🚀', requiredScore: 10 },
+      { id: 'b4', name: 'Súper Voz', description: 'Lee 25 oraciones correctamente', icon: '🎙️', requiredScore: 25 },
+      { id: 'b5', name: 'Maestro de Lectura', description: 'Lee 50 oraciones correctamente', icon: '👑', requiredScore: 50 }
+    ];
+
+    // --- 3. SERVICIOS (Generador de Oraciones y Audio) ---
+
+    const patterns = [
+      {
+        subjects: ["El dragón", "El hada", "El mago", "La bruja", "El duende", "El genio", "El rey", "La reina"],
+        verbs: ["hace", "tiene", "usa", "lanza", "busca", "ve", "cuida"],
+        objects: ["magia", "fuego", "oro", "nubes", "luz", "alas", "el trono", "joyas"]
+      },
+      {
+        subjects: ["El dragón", "El pegaso", "La nave", "El fénix", "La nube", "El cohete"],
+        verbs: ["vuela", "sube", "baja", "cruza", "va", "pasa"],
+        objects: ["alto", "rápido", "lejos", "veloz", "bien", "fuerte"]
+      },
+      {
+        subjects: ["El oso", "El gato", "El perro", "La vaca", "El ratón", "El león", "El pato", "El tigre"],
+        verbs: ["come", "busca", "pide", "huele", "mira", "quiere"],
+        objects: ["miel", "pan", "queso", "fruta", "pasto", "agua", "carne", "pescado"]
+      },
+      {
+        subjects: ["El niño", "La niña", "Mi mamá", "Mi papá", "El bebé", "Mi tía", "Mi abuela"],
+        verbs: ["lee", "toma", "juega", "usa", "abre", "lava", "mira"],
+        objects: ["libros", "leche", "fútbol", "ropa", "la caja", "el mapa", "la flor"]
+      },
+      {
+        subjects: ["El sol", "La luna", "El mar", "La flor", "El coche", "La casa", "El cielo"],
+        verbs: ["es", "está", "se ve", "parece"],
+        objects: ["grande", "azul", "rojo", "lindo", "feliz", "suave", "bello", "alto"]
+      },
+      {
+        subjects: ["El rey", "La reina", "El oso", "El niño", "La niña", "El perro"],
+        verbs: ["está", "se siente", "parece"],
+        objects: ["feliz", "triste", "bien", "mal", "fuerte", "cansado"]
+      }
+    ];
+
+    const generateRandomSentence = () => {
+      const patternIndex = Math.floor(Math.random() * patterns.length);
+      const pattern = patterns[patternIndex];
+      
+      const sub = pattern.subjects[Math.floor(Math.random() * pattern.subjects.length)];
+      const vrb = pattern.verbs[Math.floor(Math.random() * pattern.verbs.length)];
+      const obj = pattern.objects[Math.floor(Math.random() * pattern.objects.length)];
+      
+      let sentence = `${sub} ${vrb} ${obj}`;
+      const type = Math.random();
+      
+      if (type < 0.20) return `¿${sentence}?`;
+      else if (type < 0.40) return `¡${sentence}!`;
+      else return `${sentence}.`;
+    };
+
+    const normalizeText = (text) => {
+      if (!text) return "";
+      return text
+        .toLowerCase()
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .trim();
+    };
+
+    const playSuccessSound = () => {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2);
+      osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    };
+
+    const playFailureSound = () => {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    };
+
+    // --- 4. COMPONENTES ---
+
+    const ScoreBoard = ({ score }) => {
+      return (
+        <div className="w-full max-w-3xl flex flex-col sm:flex-row gap-4 justify-between items-center p-4 bg-white rounded-2xl shadow-lg mb-6">
+          <div className="flex items-center gap-3 bg-green-100 px-6 py-3 rounded-xl border-2 border-green-300 w-full sm:w-auto justify-center">
+            <CheckCircle2 className="w-8 h-8 text-green-600" />
+            <div className="flex flex-col items-center">
+              <span className="text-sm font-bold text-green-800 uppercase tracking-wider">Correctas</span>
+              <span className="text-2xl font-black text-green-700">{score.correct} / {score.totalAttempted}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 bg-yellow-100 px-6 py-3 rounded-xl border-2 border-yellow-300 w-full sm:w-auto justify-center">
+            <AlertTriangle className="w-8 h-8 text-yellow-600" />
+            <div className="flex flex-col items-center">
+              <span className="text-sm font-bold text-yellow-800 uppercase tracking-wider">Saltadas</span>
+              <span className="text-2xl font-black text-yellow-700">{score.skips}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 bg-red-100 px-6 py-3 rounded-xl border-2 border-red-300 w-full sm:w-auto justify-center">
+            <XCircle className="w-8 h-8 text-red-600" />
+            <div className="flex flex-col items-center">
+              <span className="text-sm font-bold text-red-800 uppercase tracking-wider">Errores</span>
+              <span className="text-2xl font-black text-red-700">{score.errors}</span>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const LevelProgress = ({ unlockedBadges, currentScore, theme }) => {
+      const nextBadge = BADGES.find(b => !unlockedBadges.includes(b.id));
+      const currentBadge = [...BADGES].reverse().find(b => unlockedBadges.includes(b.id));
+      
+      let progressPercent = 0;
+      if (nextBadge) {
+        const prevThreshold = currentBadge ? currentBadge.requiredScore : 0;
+        const range = nextBadge.requiredScore - prevThreshold;
+        const progress = currentScore - prevThreshold;
+        progressPercent = Math.min(100, Math.max(0, (progress / range) * 100));
+      } else {
+        progressPercent = 100;
+      }
+
+      return (
+        <div className="w-full max-w-3xl bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm border-2 border-slate-100 mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className={`font-bold ${theme.colors.accent} uppercase text-xs tracking-wider`}>Tu Progreso</h3>
+            <span className="text-xs font-bold text-slate-400">
+               {nextBadge ? `Siguiente: ${nextBadge.requiredScore} oraciones` : '¡Máximo Nivel!'}
+            </span>
+          </div>
+          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden mb-4">
+            <div 
+              className={`h-full transition-all duration-1000 ease-out ${theme.colors.primary}`}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 snap-x no-scrollbar">
+            {BADGES.map((badge) => {
+              const isUnlocked = unlockedBadges.includes(badge.id);
+              return (
+                <div 
+                  key={badge.id}
+                  className={`flex-shrink-0 snap-center w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-2xl sm:text-3xl border-2 transition-all
+                    ${isUnlocked ? 'bg-yellow-100 border-yellow-400 scale-100 shadow-md' : 'bg-slate-50 border-slate-200 opacity-50 grayscale scale-90'}
+                  `}
+                  title={badge.description}
+                >
+                  {isUnlocked ? badge.icon : <Lock className="w-6 h-6 text-slate-300" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
+
+    const ProfileSelector = ({ currentAvatar, currentTheme, onSelectAvatar, onSelectTheme, onClose }) => {
+      return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl relative overflow-y-auto max-h-[90vh]">
+            <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors">
+              <X className="w-6 h-6 text-slate-500" />
+            </button>
+            <h2 className="text-3xl font-black text-center mb-8 text-slate-800">Personaliza tu Perfil</h2>
+            <section className="mb-8">
+              <h3 className="text-xl font-bold text-slate-600 mb-4">Elige tu Personaje</h3>
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 md:gap-4">
+                {AVATARS.map((avatar) => (
+                  <button
+                    key={avatar.id}
+                    onClick={() => onSelectAvatar(avatar)}
+                    className={`aspect-square rounded-2xl flex items-center justify-center text-3xl md:text-4xl transition-all
+                      ${currentAvatar.id === avatar.id ? 'bg-blue-100 border-4 border-blue-400 scale-110 shadow-lg' : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100 hover:scale-105'}
+                    `}
+                  >
+                    {avatar.emoji}
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section>
+              <h3 className="text-xl font-bold text-slate-600 mb-4">Elige tu Tema</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {THEMES.map((theme) => (
+                  <button
+                    key={theme.id}
+                    onClick={() => onSelectTheme(theme)}
+                    className={`p-4 rounded-xl border-4 flex items-center gap-4 transition-all ${currentTheme.id === theme.id ? 'border-slate-800 shadow-xl scale-[1.02]' : 'border-transparent hover:scale-[1.01]'} ${theme.colors.background}`}
+                  >
+                    <div className={`w-12 h-12 rounded-full ${theme.colors.primary} shadow-sm`}></div>
+                    <div className="text-left">
+                      <p className={`font-bold ${theme.colors.text}`}>{theme.name}</p>
+                      <p className={`text-xs ${theme.colors.accent} opacity-75`}>Colores Mágicos</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+            <div className="mt-8 flex justify-center">
+              <button onClick={onClose} className="px-8 py-3 bg-slate-800 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-slate-700 transition-all active:scale-95">
+                ¡Listo!
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- 5. APP PRINCIPAL ---
+
+    const App = () => {
+      const [currentSentence, setCurrentSentence] = useState("");
+      const [currentWords, setCurrentWords] = useState([]);
+      const [activeWordIndex, setActiveWordIndex] = useState(-1);
+      const [gameState, setGameState] = useState(GameState.IDLE);
+      const [attempts, setAttempts] = useState(0);
+      const [score, setScore] = useState({ correct: 0, totalAttempted: 0, skips: 0, errors: 0 });
+      const [feedbackMessage, setFeedbackMessage] = useState("");
+
+      const currentSentenceRef = useRef("");
+      const recognitionRef = useRef(null);
+
+      const [theme, setTheme] = useState(THEMES[0]);
+      const [avatar, setAvatar] = useState(AVATARS[0]);
+      const [unlockedBadges, setUnlockedBadges] = useState([]);
+      const [showSettings, setShowSettings] = useState(false);
+      const [newBadgeEarned, setNewBadgeEarned] = useState(null);
+
+      useEffect(() => {
+        nextSentence();
+        return () => {
+          if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+          if (recognitionRef.current) try { recognitionRef.current.stop(); } catch (e) {}
+        };
+      }, []);
+
+      useEffect(() => {
+        currentSentenceRef.current = currentSentence;
+      }, [currentSentence]);
+
+      useEffect(() => {
+        const newBadges = [];
+        BADGES.forEach(badge => {
+          if (score.correct >= badge.requiredScore && !unlockedBadges.includes(badge.id)) {
+            newBadges.push(badge.id);
+          }
+        });
+
+        if (newBadges.length > 0) {
+          setUnlockedBadges(prev => [...prev, ...newBadges]);
+          const latestBadge = BADGES.find(b => b.id === newBadges[newBadges.length - 1]);
+          if (latestBadge) {
+            setNewBadgeEarned(latestBadge.name);
+            setTimeout(() => setNewBadgeEarned(null), 4000);
+          }
+        }
+      }, [score.correct, unlockedBadges]);
+
+      const nextSentence = () => {
+        const sentence = generateRandomSentence();
+        setCurrentSentence(sentence);
+        setCurrentWords(sentence.split(' '));
+        setAttempts(0);
+        setActiveWordIndex(-1);
+        setGameState(GameState.IDLE);
+        setFeedbackMessage("");
+      };
+
+      const handleReadAloud = () => {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(currentSentence);
+          utterance.lang = 'es-MX';
+          utterance.rate = 0.8;
+          setGameState(GameState.READING_ALOUD);
+          setActiveWordIndex(-1);
+
+          let wordIndex = 0;
+          utterance.onboundary = (event) => {
+            if (event.name === 'word') {
+              setActiveWordIndex(wordIndex);
+              wordIndex++;
+            }
+          };
+          utterance.onend = () => {
+            setActiveWordIndex(-1);
+            setGameState(GameState.IDLE);
+          };
+          utterance.onerror = () => {
+            setGameState(GameState.IDLE);
+            setActiveWordIndex(-1);
+          };
+          window.speechSynthesis.speak(utterance);
+        } else {
+          alert("Tu navegador no soporta lectura de voz.");
+        }
+      };
+
+      const startListening = () => {
+        // Advertencia de seguridad para entorno local
+        if (window.location.protocol === 'file:') {
+          alert("¡Atención! El reconocimiento de voz puede no funcionar si abres el archivo directamente (protocolo file://). Por favor usa un servidor local o súbelo a una web segura (https).");
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          alert("Tu navegador no soporta reconocimiento de voz. Por favor usa Chrome o Safari.");
+          return;
+        }
+
+        if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e) {}
+
+        try {
+          const recognition = new SpeechRecognition();
+          recognitionRef.current = recognition;
+          recognition.lang = 'es-MX';
+          recognition.continuous = false;
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+
+          setGameState(GameState.LISTENING);
+          setFeedbackMessage("");
+
+          recognition.onresult = (event) => {
+            if (event.results && event.results.length > 0) {
+              const transcript = event.results[0][0].transcript;
+              evaluateAttempt(transcript, currentSentenceRef.current);
+            } else {
+               setFeedbackMessage("No escuché nada, intenta de nuevo.");
+               setGameState(GameState.IDLE);
+            }
+          };
+
+          recognition.onerror = (event) => {
+            console.error("Speech error", event.error);
+            setGameState(GameState.IDLE);
+            if (event.error === 'not-allowed') setFeedbackMessage("Permiso de micrófono denegado.");
+            else if (event.error === 'no-speech') setFeedbackMessage("No escuché nada, intenta de nuevo.");
+            else setFeedbackMessage("Error de audio, intenta otra vez.");
+          };
+
+          recognition.onend = () => {
+            setGameState(prev => prev === GameState.LISTENING ? GameState.IDLE : prev);
+          };
+
+          recognition.start();
+        } catch (error) {
+          console.error("Failed to start recognition", error);
+          setGameState(GameState.IDLE);
+          setFeedbackMessage("Error al iniciar micrófono.");
+        }
+      };
+
+      const evaluateAttempt = (spokenText, targetSentence) => {
+        setGameState(GameState.EVALUATING);
+        const normalizedSpoken = normalizeText(spokenText);
+        const normalizedTarget = normalizeText(targetSentence);
+        
+        // Lógica de coincidencia
+        const isMatch = normalizedSpoken === normalizedTarget || 
+                       (normalizedSpoken.length > 2 && normalizedSpoken.includes(normalizedTarget));
+
+        if (isMatch) handleSuccess();
+        else handleFailure(spokenText);
+      };
+
+      const handleSuccess = () => {
+        playSuccessSound();
+        setGameState(GameState.SUCCESS);
+        setFeedbackMessage("¡Excelente!");
+        setScore(prev => ({ ...prev, correct: prev.correct + 1, totalAttempted: prev.totalAttempted + 1 }));
+        setTimeout(() => nextSentence(), 2000);
+      };
+
+      const handleFailure = (spoken) => {
+        playFailureSound();
+        setGameState(GameState.FAILURE);
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+        setScore(prev => ({ ...prev, errors: prev.errors + 1 }));
+        if (newAttempts >= 3) setFeedbackMessage(`Dijiste: "${spoken}". Intenta saltar.`);
+        else setFeedbackMessage(`Dijiste: "${spoken}". Intenta de nuevo.`);
+        setTimeout(() => setGameState(GameState.IDLE), 2500);
+      };
+
+      const handleSkip = () => {
+        setScore(prev => ({ ...prev, skips: prev.skips + 1, totalAttempted: prev.totalAttempted + 1 }));
+        nextSentence();
+      };
+
+      return (
+        <div className={`min-h-screen flex flex-col items-center p-4 font-sans transition-colors duration-500 ${theme.colors.background} ${theme.colors.text}`}>
+          {newBadgeEarned && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 pointer-events-none">
+              <div className="bg-white p-8 rounded-3xl shadow-2xl animate-bounce flex flex-col items-center border-4 border-yellow-400">
+                 <Award className="w-20 h-20 text-yellow-500 mb-4" />
+                 <h2 className="text-3xl font-black text-yellow-600 mb-2">¡Felicidades!</h2>
+                 <p className="text-xl text-slate-700 font-bold">Ganaste la insignia:</p>
+                 <p className="text-2xl text-purple-600 font-black mt-2">{newBadgeEarned}</p>
+              </div>
+            </div>
+          )}
+
+          {showSettings && (
+            <ProfileSelector
+              currentAvatar={avatar}
+              currentTheme={theme}
+              onSelectAvatar={setAvatar}
+              onSelectTheme={setTheme}
+              onClose={() => setShowSettings(false)}
+            />
+          )}
+
+          <header className="w-full max-w-3xl flex justify-between items-center mb-6 mt-2">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 md:w-16 md:h-16 rounded-full bg-white shadow-md flex items-center justify-center text-3xl md:text-4xl border-2 border-white ${theme.colors.ring}`}>
+                {avatar.emoji}
+              </div>
+              <div>
+                <h1 className={`text-2xl md:text-3xl font-black drop-shadow-sm tracking-tight ${theme.colors.accent}`}>Lectura Mágica</h1>
+                <p className={`text-sm font-bold opacity-70 hidden md:block`}>Hola, {avatar.name}</p>
+              </div>
+            </div>
+            <button onClick={() => setShowSettings(true)} className={`p-3 bg-white rounded-full shadow-sm hover:scale-105 transition-transform border-2 border-transparent hover:border-slate-200`}>
+              <Settings className={`w-6 h-6 ${theme.colors.icon}`} />
+            </button>
+          </header>
+
+          <LevelProgress unlockedBadges={unlockedBadges} currentScore={score.correct} theme={theme} />
+          <ScoreBoard score={score} />
+
+          <main className={`w-full max-w-3xl bg-white rounded-3xl shadow-2xl p-8 md:p-12 flex flex-col items-center gap-8 relative overflow-hidden border-4 transition-all duration-500 ${theme.colors.ring}`}>
+            <div className="absolute top-0 left-0 w-full h-2 bg-slate-100">
+               <div className={`h-full transition-all duration-500 ${gameState === GameState.SUCCESS ? 'bg-green-500 w-full' : gameState === GameState.FAILURE ? 'bg-red-500 w-full' : 'w-0'}`} />
+            </div>
+
+            <div className="text-center my-4 md:my-8">
+              <div className="flex flex-wrap justify-center gap-x-3 gap-y-2 text-4xl md:text-6xl font-bold leading-tight transition-colors duration-300">
+                {currentWords.map((word, index) => (
+                  <span key={index} className={`transition-all duration-200 px-1 rounded-lg relative ${activeWordIndex === index ? 'text-red-500 scale-110 z-10' : theme.colors.text}`}>
+                    {word}
+                    {activeWordIndex === index && (<div className="absolute bottom-1 left-0 w-full h-1.5 bg-red-500 rounded-full animate-pulse" />)}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="h-12 flex items-center justify-center text-center w-full">
+                {gameState === GameState.SUCCESS && (
+                   <div className="flex items-center gap-2 text-green-600 animate-bounce">
+                      <div className="bg-green-100 p-2 rounded-full"><div className="w-4 h-4 bg-green-500 rounded-full" /></div>
+                      <span className="text-xl md:text-2xl font-bold">¡Muy bien!</span>
+                   </div>
+                )}
+                {gameState === GameState.FAILURE && (
+                   <div className="flex items-center gap-2 text-red-500 animate-shake">
+                       <div className="bg-red-100 p-2 rounded-full text-lg font-bold">X</div>
+                      <span className="text-lg font-semibold leading-none">{feedbackMessage}</span>
+                   </div>
+                )}
+                {gameState === GameState.LISTENING && (
+                  <div className={`flex items-center gap-2 animate-pulse ${theme.colors.accent}`}>
+                     <div className={`w-3 h-3 rounded-full animate-ping ${theme.colors.primary.split(' ')[0]}`} />
+                     <span className="text-xl font-bold">Te escucho...</span>
+                  </div>
+                )}
+                {gameState === GameState.IDLE && attempts > 0 && <span className="text-orange-500 font-bold">Intento {attempts} de 3</span>}
+                {gameState === GameState.IDLE && attempts === 0 && feedbackMessage && <span className="text-slate-400 font-medium text-sm">{feedbackMessage}</span>}
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-4 md:gap-6 w-full mt-4">
+              <button
+                onClick={handleReadAloud}
+                disabled={gameState !== GameState.IDLE && gameState !== GameState.FAILURE && attempts < 3}
+                className={`flex items-center gap-3 px-6 py-4 md:px-8 rounded-2xl shadow-lg active:shadow-none active:translate-y-1.5 transition-all text-lg md:text-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed text-white ${theme.colors.primary}`}
+              >
+                <Volume2 className="w-6 h-6 md:w-8 md:h-8" /> Escuchar
+              </button>
+
+              <button
+                onClick={startListening}
+                disabled={gameState === GameState.READING_ALOUD || gameState === GameState.SUCCESS}
+                className={`flex items-center gap-3 px-6 py-4 md:px-8 rounded-2xl shadow-lg active:shadow-none active:translate-y-1.5 transition-all text-lg md:text-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed ${gameState === GameState.LISTENING ? 'bg-red-500 text-white animate-pulse' : `${theme.colors.secondary} text-white`}`}
+              >
+                <Mic className="w-6 h-6 md:w-8 md:h-8" />
+                {gameState === GameState.LISTENING ? 'Habla ahora' : 'Repetir'}
+              </button>
+            </div>
+
+            {attempts >= 3 && (
+              <div className="animate-fade-in mt-4">
+                <button onClick={handleSkip} className="flex items-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition-colors">
+                  <SkipForward className="w-5 h-5" /> Saltar esta oración
+                </button>
+              </div>
+            )}
+          </main>
+
+          <footer className="mt-8 md:mt-12 text-slate-400 text-xs md:text-sm font-semibold text-center px-4">
+             Hecho para aprender ❤️ &bull; {theme.name}
+          </footer>
+        </div>
+      );
+    };
+
+    // Renderizado
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
