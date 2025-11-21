@@ -183,7 +183,6 @@
     // --- Funciones de Utilidad y UI ---
 
     function updateScoreDisplay() {
-        // CORRECCIÓN: Usar las variables DOM correctas: completedCountEl y currentNumberEl.
         completedCountEl.textContent = appState.totalCompleted;
         currentNumberEl.textContent = appState.currentSentenceIndex + 1;
 
@@ -254,9 +253,10 @@
         }
         
         // AJUSTES DE VOZ PARA IPAD/NIÑOS
-        utterance.rate = 0.7;    // Velocidad más lenta y clara
-        utterance.volume = 1.0;  // Volumen máximo (1.0)
-        utterance.pitch = 1.0;   // Tono neutral (antes 1.1)
+        // Mantener velocidad y volumen, tono neutral (1.0)
+        utterance.rate = 0.7;    
+        utterance.volume = 1.0;  
+        utterance.pitch = 1.0;   
 
         utterance.onstart = () => {
             statusMessage.textContent = 'Escuchando... ¡Escribe en tu libreta!';
@@ -299,19 +299,29 @@
 
         const voices = window.speechSynthesis.getVoices();
         
-        // Criterios de búsqueda: 1. Voces de alta calidad de Apple/Google. 2. Cualquier voz en español.
+        // CRITERIOS MEJORADOS PARA VOZ NATURAL EN IPAD (Siri/Enhanced)
         let highQualityVoice = voices.find(voice => 
             voice.lang.startsWith('es') && 
-            (voice.name.includes('Siri') || voice.name.includes('Premium') || voice.name.includes('Enhanced'))
+            (voice.name.includes('Siri') || voice.name.includes('Enhanced'))
         );
         
         if (highQualityVoice) {
             appState.spanishVoice = highQualityVoice;
         } else {
-            // Si no se encuentra una voz de alta calidad, usar la primera voz en español
-            let anySpanishVoice = voices.find(voice => voice.lang.startsWith('es'));
-            if (anySpanishVoice) {
-                appState.spanishVoice = anySpanishVoice;
+            // Segunda opción: cualquier voz de Apple o Google, que suelen ser mejores que las voces genéricas.
+            let fallbackVoice = voices.find(voice => 
+                voice.lang.startsWith('es') && 
+                (voice.name.includes('Apple') || voice.name.includes('Google') || voice.name.includes('Premium'))
+            );
+            
+            if (fallbackVoice) {
+                appState.spanishVoice = fallbackVoice;
+            } else {
+                 // Último recurso: la primera voz en español que encuentre
+                let anySpanishVoice = voices.find(voice => voice.lang.startsWith('es'));
+                if (anySpanishVoice) {
+                    appState.spanishVoice = anySpanishVoice;
+                }
             }
         }
     }
