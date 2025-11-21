@@ -147,6 +147,7 @@
     // Referencia global al objeto de voz del navegador
     let synth = window.speechSynthesis;
     let utterance = null;
+    let spanishVoice = null; // NUEVO: Variable para almacenar la mejor voz en español encontrada.
 
     // --- Referencias DOM ---
     const sentenceEl = document.getElementById('current-sentence');
@@ -169,6 +170,52 @@
 
     appState.sentences = ALL_SENTENCES;
 
+    // --- Funciones de Configuración de Voz ---
+
+    function loadVoices() {
+        const voices = synth.getVoices();
+        let preferredVoice = null;
+
+        // 1. Buscamos primero cualquier voz en español (es-*) que no sea la voz por defecto (que a menudo es de baja calidad)
+        // 2. Priorizamos 'es-ES' (España) pero aceptamos 'es-US' (Latinoamérica) o cualquier otra 'es'
+        for (const voice of voices) {
+            if (voice.lang.startsWith('es') && !voice.default) {
+                // Si encontramos una voz es-ES no predeterminada, la elegimos y paramos de buscar
+                if (voice.lang.startsWith('es-ES')) {
+                    preferredVoice = voice;
+                    break; 
+                }
+                // Si encontramos cualquier otra voz 'es' no predeterminada, la guardamos como una opción de respaldo.
+                if (!preferredVoice) {
+                    preferredVoice = voice;
+                }
+            }
+        }
+        
+        // 3. Si no encontramos ninguna voz específica, recurrimos a la primera voz 'es' que encontremos (incluso la predeterminada)
+        if (!preferredVoice) {
+            preferredVoice = voices.find(voice => voice.lang.startsWith('es'));
+        }
+
+        spanishVoice = preferredVoice;
+        
+        if (spanishVoice) {
+            console.log(`TTS Voice selected: ${spanishVoice.name} (${spanishVoice.lang})`);
+            // Se puede mostrar el nombre de la voz si es necesario para el diagnóstico:
+            // statusMessage.textContent = `Voz TTS: ${spanishVoice.name}`;
+        } else {
+            console.warn("No suitable Spanish voice found. Falling back to default language configuration.");
+            // Esto significa que el navegador usará la voz predeterminada del sistema, lo que podría ser la causa del problema original.
+        }
+    }
+
+    // El evento 'voiceschanged' es crucial, especialmente en Safari, para cargar las voces
+    if (synth.onvoiceschanged !== undefined) {
+        synth.onvoiceschanged = loadVoices;
+    }
+    loadVoices(); // Llamada inicial en caso de que las voces ya estén cargadas
+
+
     // --- Funciones de Utilidad y UI ---
 
     function updateScoreDisplay() {
@@ -190,7 +237,7 @@
 
         const sentence = appState.sentences[appState.currentSentenceIndex];
         sentenceEl.textContent = sentence;
-        statusMessage.textContent = 'Oración lista para escuchar.';
+        statusMessage.textContent = 'Oración lista para escuchar (Idioma: Español).';
         
         setMainButtonState('listen');
         updateScoreDisplay();
@@ -236,8 +283,16 @@
         statusMessage.textContent = 'Reproduciendo audio... (¡Instantáneo!)';
         
         utterance = new SpeechSynthesisUtterance(sentence);
-        utterance.lang = 'es-ES'; // Configurar idioma español
+        // Fallback del idioma
+        utterance.lang = 'es-ES'; 
         utterance.rate = 0.8; // Hablar un poco más lento, ideal para dictado escolar
+
+        // NUEVO: Asignar la voz específica si se encontró una.
+        if (spanishVoice) {
+            utterance.voice = spanishVoice;
+            // Usar el lang exacto de la voz para asegurar la pronunciación correcta
+            utterance.lang = spanishVoice.lang;
+        }
 
         utterance.onend = () => {
             // Se llama cuando la voz termina de hablar
@@ -274,8 +329,8 @@
 
     // --- Inicialización ---
     window.onload = () => {
-        // El navegador necesita un click inicial para activar la síntesis de voz, 
-        // pero cargamos la primera oración de inmediato.
+        // Aseguramos que loadVoices se llama, incluso si el evento voiceschanged no se dispara de inmediato.
+        loadVoices(); 
         loadNewSentence();
     };
 </script>
