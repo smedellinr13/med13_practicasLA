@@ -183,6 +183,7 @@
     // --- Funciones de Utilidad y UI ---
 
     function updateScoreDisplay() {
+        // CORRECCIÓN: Usar las variables DOM correctas: completedCountEl y currentNumberEl.
         completedCountEl.textContent = appState.totalCompleted;
         currentNumberEl.textContent = appState.currentSentenceIndex + 1;
 
@@ -255,7 +256,7 @@
         // AJUSTES DE VOZ PARA IPAD/NIÑOS
         utterance.rate = 0.7;    // Velocidad más lenta y clara
         utterance.volume = 1.0;  // Volumen máximo (1.0)
-        utterance.pitch = 1.1;   // Tono ligeramente más alto para entonación alegre
+        utterance.pitch = 1.0;   // Tono neutral (antes 1.1)
 
         utterance.onstart = () => {
             statusMessage.textContent = 'Escuchando... ¡Escribe en tu libreta!';
@@ -297,15 +298,21 @@
         }
 
         const voices = window.speechSynthesis.getVoices();
-        // Buscar voces de alta calidad para iOS como 'Siri' o 'Google'
-        let bestSpanishVoice = voices.find(voice => voice.lang.startsWith('es') && (voice.name.includes('Siri') || voice.name.includes('Google')));
         
-        if (!bestSpanishVoice) {
-            bestSpanishVoice = voices.find(voice => voice.lang.startsWith('es'));
-        }
-
-        if (bestSpanishVoice) {
-            appState.spanishVoice = bestSpanishVoice;
+        // Criterios de búsqueda: 1. Voces de alta calidad de Apple/Google. 2. Cualquier voz en español.
+        let highQualityVoice = voices.find(voice => 
+            voice.lang.startsWith('es') && 
+            (voice.name.includes('Siri') || voice.name.includes('Premium') || voice.name.includes('Enhanced'))
+        );
+        
+        if (highQualityVoice) {
+            appState.spanishVoice = highQualityVoice;
+        } else {
+            // Si no se encuentra una voz de alta calidad, usar la primera voz en español
+            let anySpanishVoice = voices.find(voice => voice.lang.startsWith('es'));
+            if (anySpanishVoice) {
+                appState.spanishVoice = anySpanishVoice;
+            }
         }
     }
 
@@ -316,7 +323,8 @@
         
         if ('speechSynthesis' in window) {
             cacheSpanishVoice(); 
-            window.speechSynthesis.onvoiceschanged = cacheSpanishVoice;
+            // Esto asegura que la voz se cargue incluso si al inicio la lista estaba vacía
+            window.speechSynthesis.onvoiceschanged = cacheSpanishVoice; 
         } else {
             statusMessage.textContent = 'ERROR: Tu navegador no soporta la función de Texto a Voz (TTS).';
             mainButton.disabled = true;
