@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dictado Auditivo para Primer Grado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Configuración de fuente y estilos generales */
+        :root {
+            --success: #10B981; /* emerald-500 */
+            --primary: #3B82F6; /* blue-500 */
+            --bg-light: #F3F4F6; /* gray-100 */
+            --primary-text: #1F2937; /* gray-800 */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--primary-text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 1.5rem; /* rounded-3xl */
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15);
+            padding: 3rem 2rem;
+            max-width: 600px;
+            width: 100%;
+            border: 1px solid #E5E7EB; /* gray-200 */
+        }
+
+        .main-button {
+            transition: all 0.2s;
+            transform-origin: center;
+        }
+
+        .main-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .pulse-animation {
+            animation: pulse-ring 1s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.03); opacity: 0.8); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* Oculta la oración, manteniendo el espacio para la coherencia visual */
+        #current-sentence {
+            opacity: 0;
+            user-select: none;
+            height: 0;
+            overflow: hidden;
+        }
+        
+        #skip-button {
+            background-color: #EF4444; /* red-500 */
+            color: white;
+        }
+        #skip-button:hover {
+            background-color: #DC2626; /* red-600 */
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+
+<div id="app" class="card">
+    <h1 class="text-3xl font-bold text-center mb-4 text-blue-700">Dictado Auditivo ✍️</h1>
+    <p class="text-center text-gray-500 mb-8 font-semibold">
+        Escucha la oración y escríbela en tu libreta.
+    </p>
+
+    <!-- Marcador de Progreso -->
+    <div class="flex justify-between items-center mb-10">
+        <!-- Completadas -->
+        <div class="flex-1 bg-green-100 p-4 rounded-xl shadow-md border-2 border-green-300 mr-2 text-center">
+            <p class="text-sm font-semibold text-green-700">Oraciones Completadas:</p>
+            <p id="completed-count" class="text-3xl font-bold text-green-800">0</p>
+        </div>
+
+        <!-- Oración Actual -->
+        <div class="flex-1 bg-blue-100 p-4 rounded-xl shadow-md border-2 border-blue-300 ml-2 text-center">
+            <p class="text-sm font-semibold text-blue-700">Oración #:</p>
+            <p id="current-number" class="text-3xl font-bold text-blue-800">1</p>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal de la Oración (Oculto) -->
+    <div class="text-center mb-8 min-h-[50px] flex flex-col justify-center items-center relative">
+        <h2 id="current-sentence" class="text-4xl font-extrabold text-gray-800">
+            <!-- La oración se inserta aquí, pero se mantiene oculta por CSS -->
+        </h2>
+    </div>
+
+    <!-- Controles -->
+    <div class="flex flex-col items-center space-y-4">
+        
+        <!-- Botón de ESCUCHAR/REPETIR -->
+        <button id="main-action-button" onclick="readSentence()" class="main-button bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg w-full flex items-center justify-center space-x-3" disabled>
+            <!-- Icono de altavoz -->
+            <svg id="listen-icon" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M12.5 10.5V11m-2 0h.5M4.5 10.5V11m-2 0h.5m16.5 0h.5m-20.5 0h.5m10-2.25h.5m-2 0h.5m-8.5-6.75h.5m-2 0h.5m16.5 0h.5m-20.5 0h.5m10 12h.5m-2 0h.5m-8.5 6.75h.5m-2 0h.5m16.5 0h.5m-20.5 0h.5M10.5 12a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+            </svg>
+            <span id="button-text">Repetir Oración</span>
+        </button>
+
+        <!-- Botón de PASAR A LA SIGUIENTE -->
+        <button id="next-button" onclick="goToNextSentence()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-full text-lg shadow transition duration-150 w-full sm:w-auto" disabled>
+            Pasar a la Siguiente (Hecho)
+        </button>
+
+        <!-- Mensaje de Estado -->
+        <p id="status-message" class="text-lg text-gray-600 h-6">Presiona "Repetir Oración" para empezar.</p>
+    </div>
+</div>
+
+<script>
+    // Estado global de la aplicación
+    let appState = {
+        sentences: [],
+        currentSentenceIndex: 0,
+        totalCompleted: 0,
+        isReading: false,
+    };
+
+    // Referencia global al objeto de voz del navegador
+    let synth = window.speechSynthesis;
+    let utterance = null;
+    let spanishVoice = null; // Variable para almacenar la mejor voz en español encontrada.
+
+    // --- Referencias DOM ---
+    const sentenceEl = document.getElementById('current-sentence');
+    const mainButton = document.getElementById('main-action-button');
+    const nextButton = document.getElementById('next-button');
+    const buttonText = document.getElementById('button-text');
+    const statusMessage = document.getElementById('status-message');
+    const completedCountEl = document.getElementById('completed-count');
+    const currentNumberEl = document.getElementById('current-number');
+    
+    // --- Base de Datos de Oraciones (Barajadas al inicio) ---
+    const ALL_SENTENCES = [
+        "Toma el vaso.", "Lee este cuento.", "Dame la mano.", "Yo soy feliz.",
+        "Tengo un amigo.", "El niño juega.", "Mi papá lee.", "Ella tiene sed.",
+        "Voy a casa.", "Pon la luz.", "Mira el mar.", "El pez nada.",
+        "Un bebé duerme.", "Mi boca habla.", "El sol es grande.",
+        "Mi perro es café.", "La luna está alta.", "Yo quiero mi jugo.",
+        "El pato nada bien.", "Mi gato corre rápido."
+    ].sort(() => 0.5 - Math.random()); // Barajar inmediatamente
+
+    appState.sentences = ALL_SENTENCES;
+
+    // --- Funciones de Configuración de Voz (Nativa) ---
+
+    function loadVoices() {
+        const voices = synth.getVoices();
+        let preferredVoice = null;
+
+        // 1. Buscamos primero cualquier voz en español (es-*) que no sea la voz por defecto 
+        for (const voice of voices) {
+            if (voice.lang.startsWith('es') && !voice.default) {
+                // Si encontramos una voz es-ES (España) o es-MX (México), la elegimos primero
+                if (voice.lang.startsWith('es-ES') || voice.lang.startsWith('es-MX')) {
+                    preferredVoice = voice;
+                    break; 
+                }
+                // Si encontramos cualquier otra voz 'es' no predeterminada, la guardamos como respaldo.
+                if (!preferredVoice) {
+                    preferredVoice = voice;
+                }
+            }
+        }
+        
+        // 2. Si no encontramos ninguna voz específica, recurrimos a la primera voz 'es' que encontremos.
+        if (!preferredVoice) {
+            preferredVoice = voices.find(voice => voice.lang.startsWith('es'));
+        }
+
+        spanishVoice = preferredVoice;
+        
+        if (spanishVoice) {
+            console.log(`TTS Voice selected: ${spanishVoice.name} (${spanishVoice.lang})`);
+        } else {
+            console.warn("No suitable Spanish voice found. Falling back to default language configuration.");
+        }
+    }
+
+    // El evento 'voiceschanged' es crucial, especialmente en Safari, para cargar las voces
+    if (synth.onvoiceschanged !== undefined) {
+        synth.onvoiceschanged = loadVoices;
+    }
+    loadVoices(); // Llamada inicial en caso de que las voces ya estén cargadas
+
+
+    // --- Funciones de Utilidad y UI ---
+
+    function updateScoreDisplay() {
+        completedCountEl.textContent = appState.totalCompleted;
+        
+        if (appState.currentSentenceIndex < appState.sentences.length) {
+            currentNumberEl.textContent = appState.currentSentenceIndex + 1;
+        } else {
+            currentNumberEl.textContent = "¡Fin!";
+        }
+    }
+
+    function loadNewSentence() {
+        if (appState.currentSentenceIndex >= appState.sentences.length) {
+            statusMessage.textContent = '🎉 ¡Felicidades! Has completado todas las oraciones.';
+            setMainButtonState('finished');
+            return;
+        }
+
+        const sentence = appState.sentences[appState.currentSentenceIndex];
+        sentenceEl.textContent = sentence;
+        statusMessage.textContent = 'Oración lista para escuchar (Voz Local del iPad).';
+        
+        setMainButtonState('listen');
+        updateScoreDisplay();
+    }
+    
+    function setMainButtonState(state) {
+        // Detener la reproducción de voz nativa si está activa
+        if (synth.speaking) {
+            synth.cancel();
+        }
+        
+        mainButton.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'pulse-animation', 'bg-gray-400');
+
+        mainButton.disabled = true;
+        nextButton.disabled = true;
+
+        if (state === 'listen') {
+            buttonText.textContent = 'Repetir Oración';
+            mainButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            mainButton.disabled = false;
+            nextButton.disabled = false;
+            appState.isReading = false;
+        } else if (state === 'reading') {
+            buttonText.textContent = 'Hablando...';
+            mainButton.classList.add('bg-blue-600', 'pulse-animation');
+            appState.isReading = true;
+        } else if (state === 'finished') {
+            buttonText.textContent = "FIN DE LA PRUEBA";
+            mainButton.classList.add('bg-gray-400');
+            nextButton.disabled = true;
+            appState.isReading = false;
+        }
+    }
+    
+    // --- Lógica de Texto a Voz (TTS) NATIVA del Navegador ---
+    function readSentence() {
+        if (appState.isReading || mainButton.disabled) return;
+        
+        const sentence = appState.sentences[appState.currentSentenceIndex];
+        if (!sentence) return; 
+
+        setMainButtonState('reading');
+        statusMessage.textContent = 'Reproduciendo audio localmente...';
+        
+        utterance = new SpeechSynthesisUtterance(sentence);
+        // Fallback del idioma
+        utterance.lang = 'es-ES'; 
+        utterance.rate = 0.8; // Hablar un poco más lento
+
+        // Asignar la voz específica si se encontró una
+        if (spanishVoice) {
+            utterance.voice = spanishVoice;
+            utterance.lang = spanishVoice.lang;
+        }
+
+        utterance.onend = () => {
+            // Se llama cuando la voz termina de hablar
+            setMainButtonState('listen'); 
+            statusMessage.textContent = 'La oración se ha repetido. Presiona de nuevo para escucharla otra vez.';
+        };
+
+        utterance.onerror = (event) => {
+            console.error('Error de SpeechSynthesis:', event.error);
+            setMainButtonState('listen'); 
+            statusMessage.textContent = 'Error al reproducir audio. Revisa tu configuración de voz.';
+        };
+        
+        // Iniciar la reproducción
+        synth.speak(utterance);
+    }
+    
+    function goToNextSentence() {
+        if (appState.isReading) {
+             // Si está reproduciendo con el TTS nativo, lo cancela antes de pasar
+             if (synth.speaking) {
+                synth.cancel();
+            }
+        }
+
+        // Solo cuenta si ya ha comenzado el ejercicio y no ha terminado
+        if (appState.sentences.length > 0 && appState.currentSentenceIndex < appState.sentences.length) {
+            appState.totalCompleted++;
+            appState.currentSentenceIndex++;
+        }
+
+        loadNewSentence();
+    }
+
+    // --- Inicialización ---
+    window.onload = () => {
+        // Cargar voces y luego la primera oración
+        loadVoices(); 
+        loadNewSentence();
+    };
+</script>
+
+</body>
+</html>
